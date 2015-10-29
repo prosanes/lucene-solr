@@ -1,6 +1,6 @@
 package org.apache.lucene.queries.mlt;
 
-/**
+/*
  * Copyright 2004-2005 The Apache Software Foundation.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -19,19 +19,20 @@ package org.apache.lucene.queries.mlt;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.TokenStream;
 import org.apache.lucene.analysis.tokenattributes.CharTermAttribute;
-import org.apache.lucene.document.Document;
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.StorableField;
+import org.apache.lucene.index.StoredDocument;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.index.Terms;
 import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.BoostQuery;
 import org.apache.lucene.search.Query;
 import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.similarities.DefaultSimilarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
 import org.apache.lucene.search.similarities.TFIDFSimilarity;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.CharsRefBuilder;
@@ -312,7 +313,7 @@ public final class MoreLikeThis {
    * Constructor requiring an IndexReader.
    */
   public MoreLikeThis(IndexReader ir) {
-    this(ir, new DefaultSimilarity());
+    this(ir, new ClassicSimilarity());
   }
 
   public MoreLikeThis(IndexReader ir, TFIDFSimilarity sim) {
@@ -618,14 +619,14 @@ public final class MoreLikeThis {
     float bestScore = -1;
 
     while ((scoreTerm = q.pop()) != null) {
-      TermQuery tq = new TermQuery(new Term(scoreTerm.topField, scoreTerm.word));
+      Query tq = new TermQuery(new Term(scoreTerm.topField, scoreTerm.word));
 
       if (boost) {
         if (bestScore == -1) {
           bestScore = (scoreTerm.score);
         }
         float myScore = (scoreTerm.score);
-        tq.setBoost(boostFactor * myScore / bestScore);
+        tq = new BoostQuery(tq, boostFactor * myScore / bestScore);
       }
 
       try {
@@ -656,13 +657,10 @@ public final class MoreLikeThis {
       }
 
       // go through all the fields and find the largest document frequency
-      String topField = fieldNames[0];
-      int docFreq = 0;
-      for (String fieldName : fieldNames) {
-        int freq = ir.docFreq(new Term(fieldName, word));
-        topField = (freq > docFreq) ? fieldName : topField;
-        docFreq = (freq > docFreq) ? freq : docFreq;
-      }
+      String[] array = word.split(":");
+      String fieldName = array[0];
+      word = array[1];
+      int docFreq = ir.docFreq(new Term(fieldName, word));
 
       if (minDocFreq > 0 && docFreq < minDocFreq) {
         continue; // filter out words that don't occur in enough docs
@@ -681,11 +679,11 @@ public final class MoreLikeThis {
 
       if (queue.size() < limit) {
         // there is still space in the queue
-        queue.add(new ScoreTerm(word, topField, score, idf, docFreq, tf));
+        queue.add(new ScoreTerm(word, fieldName, score, idf, docFreq, tf));
       } else {
         ScoreTerm term = queue.top();
         if (term.score < score) { // update the smallest in the queue in place and update the queue.
-          term.update(word, topField, score, idf, docFreq, tf);
+          term.update(word, fieldName, score, idf, docFreq, tf);
           queue.updateTop();
         }
       }
@@ -732,16 +730,16 @@ public final class MoreLikeThis {
 
       // field does not store term vector info
       if (vector == null) {
-        Document d = ir.document(docNum);
-        IndexableField[] fields = d.getFields(fieldName);
-        for (IndexableField field : fields) {
+        StoredDocument d = ir.document(docNum);
+        StorableField[] fields = d.getFields(fieldName);
+        for (StorableField field : fields) {
           final String stringValue = field.stringValue();
           if (stringValue != null) {
             addTermFrequencies(new StringReader(stringValue), termFreqMap, fieldName);
           }
         }
       } else {
-        addTermFrequencies(termFreqMap, vector);
+        addTermFrequencies(termFreqMap, vector, fieldName);
       }
     }
 
@@ -751,7 +749,7 @@ public final class MoreLikeThis {
 
   private PriorityQueue<ScoreTerm> retrieveTerms(Map<String, Collection<Object>> fields) throws 
       IOException {
-    HashMap<String,Int> termFreqMap = new HashMap();
+    HashMap<String,Int> termFreqMap = new HashMap<>();
     for (String fieldName : fieldNames) {
       for (String field : fields.keySet()) {
         Collection<Object> fieldValues = fields.get(field);
@@ -773,7 +771,7 @@ public final class MoreLikeThis {
    * @param termFreqMap a Map of terms and their frequencies
    * @param vector List of terms and their frequencies for a doc/field
    */
-  private void addTermFrequencies(Map<String, Int> termFreqMap, Terms vector) throws IOException {
+  private void addTermFrequencies(Map<String, Int> termFreqMap, Terms vector, String fieldName) throws IOException {
     final TermsEnum termsEnum = vector.iterator();
     final CharsRefBuilder spare = new CharsRefBuilder();
     BytesRef text;
@@ -786,10 +784,11 @@ public final class MoreLikeThis {
       final int freq = (int) termsEnum.totalTermFreq();
 
       // increment frequency
-      Int cnt = termFreqMap.get(term);
+      String mapKey = fieldName + ":" + term;
+      Int cnt = termFreqMap.get(mapKey);
       if (cnt == null) {
         cnt = new Int();
-        termFreqMap.put(term, cnt);
+        termFreqMap.put(mapKey, cnt);
         cnt.x = freq;
       } else {
         cnt.x += freq;
@@ -826,9 +825,10 @@ public final class MoreLikeThis {
         }
 
         // increment frequency
-        Int cnt = termFreqMap.get(word);
+        String mapKey = fieldName + ":" + word;
+        Int cnt = termFreqMap.get(mapKey);
         if (cnt == null) {
-          termFreqMap.put(word, new Int());
+          termFreqMap.put(mapKey, new Int());
         } else {
           cnt.x++;
         }
