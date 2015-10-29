@@ -53,6 +53,13 @@ public class TestMoreLikeThis extends LuceneTestCase {
     RandomIndexWriter writer = new RandomIndexWriter(random(), directory);
     
     // Add series of docs with specific information for MoreLikeThis
+    Document doc = new Document();
+    doc.add(newTextField("text", "lucene", Field.Store.YES));
+    doc.add(newTextField("foobar", "foobared", Field.Store.YES));
+    doc.add(newTextField("text", "bar", Field.Store.YES));
+    doc.add(newTextField("foobar", "bar", Field.Store.YES));
+    writer.addDocument(doc);
+
     addDoc(writer, "lucene");
     addDoc(writer, "lucene release");
     addDoc(writer, "apache");
@@ -80,6 +87,7 @@ public class TestMoreLikeThis extends LuceneTestCase {
     Document doc = new Document();
     for (String text : texts) {
       doc.add(newTextField("text", text, Field.Store.YES));
+      doc.add(newTextField("foobar", text, Field.Store.YES));
     }
     writer.addDocument(doc);
   }
@@ -152,7 +160,17 @@ public class TestMoreLikeThis extends LuceneTestCase {
     mlt.setMinTermFreq(1);
     mlt.setMinWordLen(1);
     mlt.setFieldNames(new String[] {"text", "foobar"});
-    mlt.like("foobar", new StringReader("this is a test"));
+
+    BooleanQuery query = (BooleanQuery) mlt.like(0);
+    Collection<BooleanClause> clauses = query.clauses();
+    assertEquals("Expected 4 clauses only!", 4, clauses.size());
+    for (BooleanClause clause : clauses) {
+      Term term = ((TermQuery) clause.getQuery()).getTerm();
+      assertTrue(Arrays.asList(new Term("text", "lucene"),
+                               new Term("foobar", "foobared"),
+                               new Term("text", "bar"),
+                               new Term("foobar", "bar")).contains(term));
+    }
     analyzer.close();
   }
 
