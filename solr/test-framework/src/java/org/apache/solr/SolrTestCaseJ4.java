@@ -559,6 +559,7 @@ public abstract class SolrTestCaseJ4 extends LuceneTestCase {
 
   private static String factoryProp;
 
+  protected static String defaultHandler = "standard";
 
   public static void initCore() throws Exception {
     log.info("####initCore");
@@ -586,8 +587,7 @@ public abstract class SolrTestCaseJ4 extends LuceneTestCase {
     h = new TestHarness( coreName, hdfsDataDir == null ? initCoreDataDir.getAbsolutePath() : hdfsDataDir,
             solrConfig,
             getSchemaFile());
-    lrf = h.getRequestFactory
-            ("standard",0,20,CommonParams.VERSION,"2.2");
+    lrf = h.getRequestFactory(defaultHandler,0,20,CommonParams.VERSION,"2.2");
   }
 
   public static CoreContainer createCoreContainer(String solrHome, String solrXML) {

@@ -441,7 +441,7 @@ public class TestHarness extends BaseTestHarness {
       }
       NamedList nl = new NamedList(entries);
       if(nl.get("wt" ) == null) nl.add("wt","xml");
-      return new LocalSolrQueryRequest(TestHarness.this.getCore(), nl);
+      return new LocalSolrQueryRequest(TestHarness.this.getCore(), qtype, nl);
     }
   }
 
