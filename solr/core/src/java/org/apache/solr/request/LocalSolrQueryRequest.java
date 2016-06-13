@@ -52,12 +52,22 @@ public class LocalSolrQueryRequest extends SolrQueryRequestBase {
     return new MultiMapSolrParams(map);
   }
 
+  protected static SolrParams makeParams(String qtype, NamedList args) {
+    args.add(CommonParams.QT, qtype);
+    SolrParams solrParams = SolrParams.toSolrParams(args);
+    return solrParams;
+  }
+
   public LocalSolrQueryRequest(SolrCore core, String query, String qtype, int start, int limit, Map args) {
     super(core,makeParams(query,qtype,start,limit,args));
   }
 
   public LocalSolrQueryRequest(SolrCore core, NamedList args) {
     super(core, SolrParams.toSolrParams(args));
+  }
+
+  public LocalSolrQueryRequest(SolrCore core, String qtype, NamedList args) {
+    super(core, makeParams(qtype, args));
   }
 
   public LocalSolrQueryRequest(SolrCore core, Map<String,String[]> args) {

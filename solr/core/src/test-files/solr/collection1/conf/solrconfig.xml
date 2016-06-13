@@ -482,6 +482,13 @@
     </lst>
   </requestHandler>
 
+  <requestHandler name="/multi" class="solr.MultiSearchHandler" >
+    <lst name="default">
+      <str name="echoParams">explict</str>
+      <str name="df">title</str>
+      <int name="rows">10</int>
+    </lst>
+  </requestHandler>
   <admin>
     <defaultQuery>solr</defaultQuery>
     <gettableFiles>solrconfig.xml schema.xml admin-extra.html</gettableFiles>

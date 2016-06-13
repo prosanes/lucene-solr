@@ -231,6 +231,14 @@ public class SearchHandler extends RequestHandlerBase implements SolrCoreAware ,
   {
     List<SearchComponent> components  = getComponents();
     ResponseBuilder rb = new ResponseBuilder(req, rsp, components);
+    handleRequestBody(req, rsp, components, rb);
+  }
+
+  public void handleRequestBody(SolrQueryRequest req,
+                                SolrQueryResponse rsp,
+                                List<SearchComponent> components,
+                                ResponseBuilder rb) throws Exception
+  {
     if (rb.requestInfo != null) {
       rb.requestInfo.setResponseBuilder(rb);
     }
