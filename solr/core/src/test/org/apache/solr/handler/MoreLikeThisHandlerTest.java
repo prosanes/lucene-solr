@@ -43,6 +43,40 @@ public class MoreLikeThisHandlerTest extends SolrTestCaseJ4 {
   }
 
   @Test
+  public void testMatchIsReturnedInSimilars() throws Exception {
+    SolrCore core = h.getCore();
+    MoreLikeThisHandler mlt = new MoreLikeThisHandler();
+
+    ModifiableSolrParams params = new ModifiableSolrParams();
+    SolrQueryRequestBase req = new SolrQueryRequestBase( core, params) {};
+
+    assertU(adoc("id","42","name","Tom Cruise","subword","Top Gun","subword","Risky Business","subword","The Color of Money","subword","Minority Report","subword", "Days of Thunder","subword", "Eyes Wide Shut","subword", "Far and Away", "foo_ti","10"));
+    assertU(adoc("id","43","name","Tom Hanks","subword","The Green Mile","subword","Forest Gump","subword","Philadelphia Story","subword","Big","subword","Cast Away", "foo_ti","10"));
+    assertU(adoc("id","44","name","Harrison Ford","subword","Star Wars","subword","Indiana Jones","subword","Patriot Games","subword","Regarding Henry"));
+    assertU(adoc("id","45","name","George Harrison","subword","Yellow Submarine","subword","Help","subword","Magical Mystery Tour","subword","Sgt. Peppers Lonley Hearts Club Band"));
+    assertU(adoc("id","46","name","Nicole Kidman","subword","Batman","subword","Days of Thunder","subword","Eyes Wide Shut","subword","Far and Away"));
+    assertU(commit());
+
+    params.set(CommonParams.Q, "id:42");
+    params.set(CommonParams.QT, "/mlt");
+    params.set(MoreLikeThisParams.MLT, "true");
+    params.set(MoreLikeThisParams.SIMILARITY_FIELDS, "name,subword");
+    params.set(MoreLikeThisParams.INTERESTING_TERMS, "details");
+    params.set(MoreLikeThisParams.MIN_TERM_FREQ,"1");
+    params.set(MoreLikeThisParams.MIN_DOC_FREQ,"1");
+    params.set(MoreLikeThisParams.MATCH_INCLUDE_IN_SIMILARS,"true");
+    params.set("indent","true");
+
+    SolrQueryRequest mltreq = new LocalSolrQueryRequest( core, params);
+    assertQ("morelikethis - tom cruise",
+        mltreq,
+        "//result[@name='match']/doc[1]/int[@name='id'][.='42']", //Match
+        "//result[@name='response']/doc[1]/int[@name='id'][.='42']", //Match returned in similars response
+        "//result[@name='response']/doc[2]/int[@name='id'][.='46']" //A similar result
+        );
+  }
+
+  @Test
   public void testInterface() throws Exception
   {
     SolrCore core = h.getCore();

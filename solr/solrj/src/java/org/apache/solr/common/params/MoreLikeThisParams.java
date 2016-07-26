@@ -45,7 +45,10 @@ public interface MoreLikeThisParams
 
   // Do you want to include the original document in the results or not
   public final static String MATCH_INCLUDE = PREFIX + "match.include";
-  
+
+  // Do you want to include the original document in the similars result
+  public final static String MATCH_INCLUDE_IN_SIMILARS = PREFIX + "match.include.in_similars";
+
   // If multiple docs are matched in the query, what offset do you want?
   public final static String MATCH_OFFSET  = PREFIX + "match.offset";
 

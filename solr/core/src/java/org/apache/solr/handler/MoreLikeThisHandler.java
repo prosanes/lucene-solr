@@ -193,8 +193,9 @@ public class MoreLikeThisHandler extends RequestHandlerBase
             if (iterator.hasNext()) {
               // do a MoreLikeThis query for each document in results
               int id = iterator.nextDoc();
+              boolean includeMatchInSimilars = params.getBool(MoreLikeThisParams.MATCH_INCLUDE_IN_SIMILARS, false);
               mltDocs = mlt.getMoreLikeThis(id, start, rows, filters, interesting,
-                  flags);
+                  flags, includeMatchInSimilars);
             }
           } else {
             throw new SolrException(SolrException.ErrorCode.BAD_REQUEST,
@@ -390,8 +391,19 @@ public class MoreLikeThisHandler extends RequestHandlerBase
       }
       return boostedQuery;
     }
-    
+
     public DocListAndSet getMoreLikeThis( int id, int start, int rows, List<Query> filters, List<InterestingTerm> terms, int flags ) throws IOException
+    {
+      return getMoreLikeThis(id, start, rows, filters, terms, flags, false);
+    }
+    
+    public DocListAndSet getMoreLikeThis( int id,
+                                          int start,
+                                          int rows,
+                                          List<Query> filters,
+                                          List<InterestingTerm> terms,
+                                          int flags,
+                                          boolean includeMatchInSimilars ) throws IOException
     {
       Document doc = reader.document(id);
       rawMLTQuery = mlt.like(id);
@@ -403,9 +415,13 @@ public class MoreLikeThisHandler extends RequestHandlerBase
       // exclude current document from results
       BooleanQuery.Builder realMLTQuery = new BooleanQuery.Builder();
       realMLTQuery.add(boostedMLTQuery, BooleanClause.Occur.MUST);
-      realMLTQuery.add(
-          new TermQuery(new Term(uniqueKeyField.getName(), uniqueKeyField.getType().storedToIndexed(doc.getField(uniqueKeyField.getName())))), 
+      if (!includeMatchInSimilars) {
+        realMLTQuery.add(
+            new TermQuery(
+                new Term(uniqueKeyField.getName(),
+                    uniqueKeyField.getType().storedToIndexed(doc.getField(uniqueKeyField.getName())))),
             BooleanClause.Occur.MUST_NOT);
+      }
       this.realMLTQuery = realMLTQuery.build();
       
       DocListAndSet results = new DocListAndSet();
